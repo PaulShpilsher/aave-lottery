@@ -76,19 +76,27 @@ contract AaveLottery {
         payable(msg.sender).transfer(address(this).balance);
     }
 
-    // Random number generator
-    // Do not use in production.  TODO: Use Chainlink VRF to generate random number
-    // https://docs.chain.link/docs/get-a-random-number/
-    function random() private view returns (uint256) {
-        return
-            uint256(
-                keccak256(
-                    abi.encodePacked(
-                        block.timestamp,
-                        rounds[currentId].totalStake,
-                        currentId
-                    )
+    // Randomly select a winner
+
+    function _drawWinner(
+        uint256 total
+    ) internal view returns (uint) {
+        // !Important: Do not use in production.
+        // TODO: Use Chainlink VRF to generate random number
+        // https://docs.chain.link/docs/get-a-random-number/
+
+        // [0..2^256-1)
+        uint256 randomNumber = uint256(
+            keccak256(
+                abi.encodePacked(
+                    block.timestamp,
+                    rounds[currentId].totalStake,
+                    currentId
                 )
-            );
+            )
+        );
+
+        // TODO: deal with modulo bias
+        return randomNumber % total;
     }
 }
