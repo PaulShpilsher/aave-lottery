@@ -12,6 +12,8 @@ contract AaveLottery {
 
     struct Ticket {
         uint256 stake; // Amount of ETH staked
+        uint256 segmentStart; // Start of segment in array [totalStake... totalStake + stake]
+        bool exited; // Whether user has exited, i.e. withdrawn funds
     }
 
     // Duration of each round in seconds
@@ -59,9 +61,18 @@ contract AaveLottery {
     // User to enter lottery
     function enter(uint256 amount) external payable {
         // Validation
+        require(tickets[currentId][msg.sender].stake == 0, "ALREADY_ENTERED");
+
         // Updates
         _updateState();
+
         // User enters
+        // Tiket memory ticket = Ticket(amount, rounds[currentId].totalStake, false);
+        tickets[currentId][msg.sender].stake = amount;
+        tickets[currentId][msg.sender].segmentStart = rounds[currentId]
+            .totalStake;
+        rounds[currentId].totalStake += amount;
+
         // Transfer funds in
         // Deposit user funds into Aave Pool
 
@@ -71,9 +82,17 @@ contract AaveLottery {
     // User to exit lottery
     function exit(uint256 roundId) external {
         // Validation
+        require(!tickets[roundId][msg.sender].exited, "ALREADY_EXITED");
+
         // Updates
         _updateState();
+        require(roundId < currentId, "ROUND_NOT_OVER");
+
         // User exits
+        uint256 amount = tickets[roundId][msg.sender].stake;
+        tickets[roundId][msg.sender].exited = true;
+        rounds[roundId].totalStake -= amount;
+
         // Transfer funds out
         // Deposit user funds into Aave Pool
         payable(msg.sender).transfer(address(this).balance);
@@ -82,7 +101,16 @@ contract AaveLottery {
     // User to claim lottery
     function claim(uint256 roundId) external {
         // Validation
+        require(roundId < currentId, "ROUND_NOT_OVER");
+
         // Check winner
+        Ticket memory ticket = tickets[roundId][msg.sender];
+        Round memory round = rounds[roundId];
+        
+        // round.winnerTicket belongs to [tiket.segmentStart... ticket.segmentStart + ticket.stake)
+        require(round.winnerTicket - ticket.segmentStart < ticket.stake, "NOT_WINNER");
+        round.winner = msg.sender;
+        
         // Transfer jackpot to winner
 
         payable(msg.sender).transfer(address(this).balance);
