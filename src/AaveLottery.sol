@@ -19,6 +19,7 @@ contract AaveLottery {
         uint256 award; // Jackpot amount
         uint256 winnerTicket; // Index of winner
         address winner; // Winner of round
+        uint256 scaledBalancStake; // Total aave scaled balance from, all users
     }
 
     struct Ticket {
@@ -65,7 +66,10 @@ contract AaveLottery {
         aToken = IAToken(data.aTokenAddress);
 
         // allow aave to spend underlying
-        require( underlying.approve(_aavePool, type(uint256).max), "APPROVE_FAILED");
+        require(
+            underlying.approve(_aavePool, type(uint256).max),
+            "APPROVE_FAILED"
+        );
 
         // Create first round
         rounds[currentId] = Round(
@@ -73,7 +77,8 @@ contract AaveLottery {
             0,
             0,
             0,
-            address(0)
+            address(0),
+            0
         );
     }
 
@@ -108,9 +113,17 @@ contract AaveLottery {
         rounds[currentId].totalStake += amount;
 
         // Transfer funds in
-        underlying.safeTransferFrom(msg.sender, address(this), amount); // user ,ust approve this contract to spend their funds
+        underlying.safeTransferFrom(msg.sender, address(this), amount); // user must approve this contract to spend their funds
 
         // Deposit user funds into Aave Pool
+        uint256 scaledBalanceBefore = aToken.scaledBalanceOf(address(this));
+        aave.deposit(address(underlying), amount, address(this), 0);
+        uint256 scaledBalanceAfter = aToken.scaledBalanceOf(address(this));
+
+        // Update scaledBalancStake
+        rounds[currentId].scaledBalancStake +=
+            scaledBalanceAfter -
+            scaledBalanceBefore;
     }
 
     // User to exit lottery
