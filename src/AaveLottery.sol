@@ -30,6 +30,15 @@ contract AaveLottery {
     // C-tor
     constructor(uint256 _roundDuration) {
         roundDuration = _roundDuration;
+
+        // Create first round
+        rounds[currentId] = Round(
+            block.timestamp + roundDuration,
+            0,
+            0,
+            0,
+            address(0)
+        );
     }
 
     function getRound(uint256 roundId) external view returns (Round memory) {
@@ -87,9 +96,7 @@ contract AaveLottery {
     // [100..299] => user2
     // [300..599] => user3
     // total = 600
-    function _drawWinner(
-        uint256 total
-    ) internal view returns (uint) {
+    function _drawWinner(uint256 total) internal view returns (uint) {
         // !Important: Do not use in production.
         // TODO: Use Chainlink VRF to generate random number
         // https://docs.chain.link/docs/get-a-random-number/
@@ -113,8 +120,10 @@ contract AaveLottery {
         // Check if round is over
         if (block.timestamp > rounds[currentId].endTime) {
             // Draw winner
-            rounds[currentId].winnerTicket = _drawWinner(rounds[currentId].totalStake);
-     
+            rounds[currentId].winnerTicket = _drawWinner(
+                rounds[currentId].totalStake
+            );
+
             // Create new round
             rounds[++currentId].endTime = block.timestamp + roundDuration;
         }
