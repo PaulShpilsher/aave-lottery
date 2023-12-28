@@ -65,5 +65,7 @@ $ anvil --help
 $ cast --help
 ```
 
-
+Notes: 
+forge install OpenZeppelin/openzeppelin-contracts
+forge install https://github.com/aave/aave-v3-core 
 forge remappings > remappings.txt
