@@ -1,7 +1,13 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.13;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 contract AaveLottery {
+    using SafeERC20 for IERC20;
+
     struct Round {
         uint256 endTime; // End time of round
         uint256 totalStake; // Total amount of ETH staked from, all users
@@ -106,11 +112,14 @@ contract AaveLottery {
         // Check winner
         Ticket memory ticket = tickets[roundId][msg.sender];
         Round memory round = rounds[roundId];
-        
+
         // round.winnerTicket belongs to [tiket.segmentStart... ticket.segmentStart + ticket.stake)
-        require(round.winnerTicket - ticket.segmentStart < ticket.stake, "NOT_WINNER");
+        require(
+            round.winnerTicket - ticket.segmentStart < ticket.stake,
+            "NOT_WINNER"
+        );
         round.winner = msg.sender;
-        
+
         // Transfer jackpot to winner
 
         payable(msg.sender).transfer(address(this).balance);
