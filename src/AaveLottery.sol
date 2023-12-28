@@ -64,6 +64,9 @@ contract AaveLottery {
         require(data.aTokenAddress != address(0), "ATOKEN_NOT_FOUND");
         aToken = IAToken(data.aTokenAddress);
 
+        // allow aave to spend underlying
+        require( underlying.approve(_aavePool, type(uint256).max), "APPROVE_FAILED");
+
         // Create first round
         rounds[currentId] = Round(
             block.timestamp + roundDuration,
