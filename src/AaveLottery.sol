@@ -28,6 +28,9 @@ contract AaveLottery {
     // Current round id
     uint256 public currentId;
 
+    // Underlying asset
+    IERC20 public underlying;
+
     // Mapping of roundId to Round
     mapping(uint256 => Round) public rounds;
 
@@ -36,8 +39,9 @@ contract AaveLottery {
     mapping(uint256 => mapping(address => Ticket)) public tickets;
 
     // C-tor
-    constructor(uint256 _roundDuration) {
+    constructor(uint256 _roundDuration, address _underlying) {
         roundDuration = _roundDuration;
+        underlying = IERC20(_underlying);
 
         // Create first round
         rounds[currentId] = Round(
@@ -65,7 +69,7 @@ contract AaveLottery {
     }
 
     // User to enter lottery
-    function enter(uint256 amount) external payable {
+    function enter(uint256 amount) external {
         // Validation
         require(tickets[currentId][msg.sender].stake == 0, "ALREADY_ENTERED");
 
@@ -80,9 +84,9 @@ contract AaveLottery {
         rounds[currentId].totalStake += amount;
 
         // Transfer funds in
-        // Deposit user funds into Aave Pool
+        underlying.safeTransferFrom(msg.sender, address(this), amount); // user ,ust approve this contract to spend their funds
 
-        require(msg.value >= 0.01 ether, "Not enough ETH");
+        // Deposit user funds into Aave Pool
     }
 
     // User to exit lottery
@@ -100,6 +104,8 @@ contract AaveLottery {
         rounds[roundId].totalStake -= amount;
 
         // Transfer funds out
+        underlying.safeTransfer(msg.sender, amount);
+
         // Deposit user funds into Aave Pool
         payable(msg.sender).transfer(address(this).balance);
     }
@@ -118,11 +124,12 @@ contract AaveLottery {
             round.winnerTicket - ticket.segmentStart < ticket.stake,
             "NOT_WINNER"
         );
+
+        require(round.winner == address(0), "ALREADY_CLAIMED");
         round.winner = msg.sender;
 
         // Transfer jackpot to winner
-
-        payable(msg.sender).transfer(address(this).balance);
+        underlying.safeTransfer(msg.sender, round.award);
     }
 
     // Randomly select a winner
