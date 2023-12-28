@@ -4,9 +4,14 @@ pragma solidity ^0.8.13;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IPool} from "aave-v3-core/contracts/interfaces/IPool.sol";
+import {IAToken} from "aave-v3-core/contracts/interfaces/IAToken.sol";
+import {DataTypes} from "aave-v3-core/contracts/protocol/libraries/types/DataTypes.sol";
+import {WadRayMath} from "aave-v3-core/contracts/protocol/libraries/math/WadRayMath.sol";
 
 contract AaveLottery {
     using SafeERC20 for IERC20;
+    using WadRayMath for uint256;
 
     struct Round {
         uint256 endTime; // End time of round
@@ -31,6 +36,12 @@ contract AaveLottery {
     // Underlying asset
     IERC20 public underlying;
 
+    // Aave Pool
+    IPool private aave;
+
+    // Aave aToken
+    IAToken private aToken;
+
     // Mapping of roundId to Round
     mapping(uint256 => Round) public rounds;
 
@@ -39,9 +50,19 @@ contract AaveLottery {
     mapping(uint256 => mapping(address => Ticket)) public tickets;
 
     // C-tor
-    constructor(uint256 _roundDuration, address _underlying) {
+    constructor(
+        uint256 _roundDuration,
+        address _underlying,
+        address _aavePool
+    ) {
         roundDuration = _roundDuration;
         underlying = IERC20(_underlying);
+        aave = IPool(_aavePool);
+
+        // get aToken for the underlying asset
+        DataTypes.ReserveData memory data = aave.getReserveData(_underlying);
+        require(data.aTokenAddress != address(0), "ATOKEN_NOT_FOUND");
+        aToken = IAToken(data.aTokenAddress);
 
         // Create first round
         rounds[currentId] = Round(
