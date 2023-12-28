@@ -6,6 +6,7 @@ contract AaveLottery {
         uint256 endTime; // End time of round
         uint256 totalStake; // Total amount of ETH staked from, all users
         uint256 award; // Jackpot amount
+        uint256 winnerTicket; // Index of winner
         address winner; // Winner of round
     }
 
@@ -50,6 +51,7 @@ contract AaveLottery {
     function enter(uint256 amount) external payable {
         // Validation
         // Updates
+        _updateState();
         // User enters
         // Transfer funds in
         // Deposit user funds into Aave Pool
@@ -61,6 +63,7 @@ contract AaveLottery {
     function exit(uint256 roundId) external {
         // Validation
         // Updates
+        _updateState();
         // User exits
         // Transfer funds out
         // Deposit user funds into Aave Pool
@@ -77,7 +80,13 @@ contract AaveLottery {
     }
 
     // Randomly select a winner
-
+    // total is the sum of stakes in a round
+    // for simplicity we map each user stakes to a range of an array like representation
+    // user1 stakes 100 ETH, user2 stakes 200 ETH, user3 stakes 300 ETH
+    // [0..99] => user1
+    // [100..299] => user2
+    // [300..599] => user3
+    // total = 600
     function _drawWinner(
         uint256 total
     ) internal view returns (uint) {
@@ -98,5 +107,16 @@ contract AaveLottery {
 
         // TODO: deal with modulo bias
         return randomNumber % total;
+    }
+
+    function _updateState() internal {
+        // Check if round is over
+        if (block.timestamp > rounds[currentId].endTime) {
+            // Draw winner
+            rounds[currentId].winnerTicket = _drawWinner(rounds[currentId].totalStake);
+     
+            // Create new round
+            rounds[++currentId].endTime = block.timestamp + roundDuration;
+        }
     }
 }
