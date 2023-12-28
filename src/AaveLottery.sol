@@ -163,7 +163,8 @@ contract AaveLottery {
         );
 
         require(round.winner == address(0), "ALREADY_CLAIMED");
-        round.winner = msg.sender;
+        // update winner in storage
+        rounds[roundId].winner = msg.sender; // round.winner = msg.sender; 
 
         // Transfer jackpot to winner
         underlying.safeTransfer(msg.sender, round.award);
@@ -200,6 +201,17 @@ contract AaveLottery {
     function _updateState() internal {
         // Check if round is over
         if (block.timestamp > rounds[currentId].endTime) {
+            // Aave award
+            
+            // total amount of aTokens = scaled balance * index
+            uint256 index = aave.getReserveNormalizedIncome(
+                address(underlying)
+            );
+
+            uint256 aTokenBalance = rounds[currentId].scaledBalancStake.rayMul(index);
+            uint256 aaveAmount = aave.withdraw(address(underlying), aTokenBalance, address(this)); // principal + interest
+            rounds[currentId].award = aaveAmount - rounds[currentId].totalStake;
+
             // Draw winner
             rounds[currentId].winnerTicket = _drawWinner(
                 rounds[currentId].totalStake
