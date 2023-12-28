@@ -51,11 +51,7 @@ contract AaveLottery {
     mapping(uint256 => mapping(address => Ticket)) public tickets;
 
     // C-tor
-    constructor(
-        uint256 _roundDuration,
-        address _underlying,
-        address _aavePool
-    ) {
+    constructor(uint256 _roundDuration, address _underlying, address _aavePool) {
         roundDuration = _roundDuration;
         underlying = IERC20(_underlying);
         aave = IPool(_aavePool);
@@ -66,34 +62,17 @@ contract AaveLottery {
         aToken = IAToken(data.aTokenAddress);
 
         // allow aave to spend underlying
-        require(
-            underlying.approve(_aavePool, type(uint256).max),
-            "APPROVE_FAILED"
-        );
+        require(underlying.approve(_aavePool, type(uint256).max), "APPROVE_FAILED");
 
         // Create first round
-        rounds[currentId] = Round(
-            block.timestamp + roundDuration,
-            0,
-            0,
-            0,
-            address(0),
-            0
-        );
+        rounds[currentId] = Round(block.timestamp + roundDuration, 0, 0, 0, address(0), 0);
     }
 
     function getRound(uint256 roundId) external view returns (Round memory) {
-        // Validation
-        // Return round
         return rounds[roundId];
     }
 
-    function getTicket(
-        uint256 roundId,
-        address user
-    ) external view returns (Ticket memory) {
-        // Validation
-        // Return ticket
+    function getTicket(uint256 roundId, address user) external view returns (Ticket memory) {
         return tickets[roundId][user];
     }
 
@@ -108,8 +87,7 @@ contract AaveLottery {
         // User enters
         // Tiket memory ticket = Ticket(amount, rounds[currentId].totalStake, false);
         tickets[currentId][msg.sender].stake = amount;
-        tickets[currentId][msg.sender].segmentStart = rounds[currentId]
-            .totalStake;
+        tickets[currentId][msg.sender].segmentStart = rounds[currentId].totalStake;
         rounds[currentId].totalStake += amount;
 
         // Transfer funds in
@@ -121,9 +99,7 @@ contract AaveLottery {
         uint256 scaledBalanceAfter = aToken.scaledBalanceOf(address(this));
 
         // Update scaledBalancStake
-        rounds[currentId].scaledBalancStake +=
-            scaledBalanceAfter -
-            scaledBalanceBefore;
+        rounds[currentId].scaledBalancStake += scaledBalanceAfter - scaledBalanceBefore;
     }
 
     // User to exit lottery
@@ -157,14 +133,11 @@ contract AaveLottery {
         Round memory round = rounds[roundId];
 
         // round.winnerTicket belongs to [tiket.segmentStart... ticket.segmentStart + ticket.stake)
-        require(
-            round.winnerTicket - ticket.segmentStart < ticket.stake,
-            "NOT_WINNER"
-        );
+        require(round.winnerTicket - ticket.segmentStart < ticket.stake, "NOT_WINNER");
 
         require(round.winner == address(0), "ALREADY_CLAIMED");
         // update winner in storage
-        rounds[roundId].winner = msg.sender; // round.winner = msg.sender; 
+        rounds[roundId].winner = msg.sender; // round.winner = msg.sender;
 
         // Transfer jackpot to winner
         underlying.safeTransfer(msg.sender, round.award);
@@ -178,21 +151,14 @@ contract AaveLottery {
     // [100..299] => user2
     // [300..599] => user3
     // total = 600
-    function _drawWinner(uint256 total) internal view returns (uint) {
+    function _drawWinner(uint256 total) internal view returns (uint256) {
         // !Important: Do not use in production.
         // TODO: Use Chainlink VRF to generate random number
         // https://docs.chain.link/docs/get-a-random-number/
 
         // [0..2^256-1)
-        uint256 randomNumber = uint256(
-            keccak256(
-                abi.encodePacked(
-                    block.timestamp,
-                    rounds[currentId].totalStake,
-                    currentId
-                )
-            )
-        );
+        uint256 randomNumber =
+            uint256(keccak256(abi.encodePacked(block.timestamp, rounds[currentId].totalStake, currentId)));
 
         // TODO: deal with modulo bias
         return randomNumber % total;
@@ -202,20 +168,16 @@ contract AaveLottery {
         // Check if round is over
         if (block.timestamp > rounds[currentId].endTime) {
             // Aave award
-            
+
             // total amount of aTokens = scaled balance * index
-            uint256 index = aave.getReserveNormalizedIncome(
-                address(underlying)
-            );
+            uint256 index = aave.getReserveNormalizedIncome(address(underlying));
 
             uint256 aTokenBalance = rounds[currentId].scaledBalancStake.rayMul(index);
             uint256 aaveAmount = aave.withdraw(address(underlying), aTokenBalance, address(this)); // principal + interest
             rounds[currentId].award = aaveAmount - rounds[currentId].totalStake;
 
             // Draw winner
-            rounds[currentId].winnerTicket = _drawWinner(
-                rounds[currentId].totalStake
-            );
+            rounds[currentId].winnerTicket = _drawWinner(rounds[currentId].totalStake);
 
             // Create new round
             rounds[++currentId].endTime = block.timestamp + roundDuration;
